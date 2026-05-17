@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ISDB-T - Configuración de Segmentos OFDM</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    :root{
+      --brand:#166534;
+      --brand-2:#22c55e;
+      --soft:#f6f8fb;
+      --ink:#1f2937;
+      --muted:#6b7280;
+      --line:#dbe2ea;
+      --warn:#f97316;
+    }
+    body{background:linear-gradient(180deg,#edf7f0 0%,#f8fafc 45%,#ffffff 100%); color:var(--ink);}
+    .app-shell{max-width:1100px;margin:auto;}
+    .top-card{border:0;border-radius:24px;background:#ffffff;box-shadow:0 12px 35px rgba(15,23,42,.08);overflow:hidden;}
+    .header{background:linear-gradient(135deg,#14532d,#16a34a);color:#fff;padding:1.25rem;}
+    .header h1{font-size:1.25rem;margin:0;font-weight:800;letter-spacing:.2px;}
+    .header p{margin:.35rem 0 0;color:#dcfce7;font-size:.92rem;}
+    .layer-card{border:1px solid var(--line);border-radius:20px;background:#fff;box-shadow:0 8px 24px rgba(15,23,42,.04);}
+    .layer-title{display:flex;align-items:center;justify-content:space-between;gap:.75rem;}
+    .badge-layer{background:#eef6ff;color:#075985;border:1px solid #bae6fd;}
+    .form-label{font-weight:700;font-size:.88rem;color:#334155;}
+    .input-user{border:2px solid #fed7aa;background:#fff7ed;}
+    .input-user:focus{border-color:var(--warn);box-shadow:0 0 0 .25rem rgba(249,115,22,.16);}
+    .result-box{border:2px solid #86efac;background:#f0fdf4;border-radius:16px;padding:1rem;min-height:76px;display:flex;flex-direction:column;justify-content:center;}
+    .result-box .label{font-size:.78rem;color:#166534;text-transform:uppercase;font-weight:800;letter-spacing:.05em;}
+    .result-box .value{font-size:1.6rem;font-weight:900;color:#14532d;line-height:1.2;}
+    .total-box{background:#dcfce7;border-color:#22c55e;}
+    .small-help{font-size:.82rem;color:var(--muted);}
+    .disabled-layer{opacity:.58;}
+    .formula{background:#0f172a;color:#e2e8f0;border-radius:16px;padding:1rem;overflow:auto;}
+    .formula-equation{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;font-size:.95rem;}
+    .fraction{display:inline-flex;flex-direction:column;align-items:center;line-height:1.35;vertical-align:middle;}
+    .fraction .numerator{border-bottom:2px solid currentColor;padding:0 .45rem .2rem;white-space:nowrap;}
+    .fraction .denominator{padding:.2rem .45rem 0;white-space:nowrap;}
+    .parameter-list{display:grid;gap:.35rem;margin-top:.75rem;}
+    .parameter-list div{font-size:.92rem;color:var(--muted);}
+    .footer-info{font-size:.92rem;color:#334155;border-top:1px solid var(--line);margin-top:1rem;padding-top:1rem;}
+    .footer-info strong{color:#0f172a;}
+    .toast-error{display:none;border-left:5px solid #dc2626;background:#fef2f2;color:#7f1d1d;border-radius:14px;padding:.8rem 1rem;font-weight:700;}
+    .toast-error.show{display:block;}
+    @media (min-width:768px){.header h1{font-size:1.6rem}.result-box .value{font-size:1.9rem}}
+  </style>
+</head>
+<body>
+  <main class="container py-3 py-md-5 app-shell">
+    <section class="top-card mb-3 mb-md-4">
+      <div class="header">
+        <h1>ISDB-T · Configuración de Segmentos OFDM</h1>
+        <p>Ingrese los parámetros de Capa A, luego Capa B y finalmente Capa C. La tasa se calcula automáticamente.</p>
+      </div>
+      <div class="p-3 p-md-4">
+        <div id="errorBox" class="toast-error mb-3" role="alert"></div>
+
+        <div class="row g-3 align-items-end mb-3">
+          <div class="col-12 col-md-4">
+            <label for="guard" class="form-label">Intervalo / tiempo de guarda</label>
+            <select id="guard" class="form-select input-user">
+              <option value="1/4">1/4</option>
+              <option value="1/8">1/8</option>
+              <option value="1/16">1/16</option>
+              <option value="1/32" selected>1/32</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-8">
+            <div class="small-help">El número total de segmentos entre las tres capas no puede superar 13. Si Capa A = 13, las capas B y C se desactivan.</div>
+          </div>
+        </div>
+
+        <div class="row g-3" id="layers"></div>
+
+        <div class="row g-3 mt-1">
+          <div class="col-12 col-md-3">
+            <div class="result-box">
+              <div class="label">Tasa Capa A</div>
+              <div class="value"><span id="rateA">0.000</span></div>
+              <div class="small-help">Mbps</div>
+            </div>
+          </div>
+          <div class="col-12 col-md-3">
+            <div class="result-box">
+              <div class="label">Tasa Capa B</div>
+              <div class="value"><span id="rateB">0.000</span></div>
+              <div class="small-help">Mbps</div>
+            </div>
+          </div>
+          <div class="col-12 col-md-3">
+            <div class="result-box">
+              <div class="label">Tasa Capa C</div>
+              <div class="value"><span id="rateC">0.000</span></div>
+              <div class="small-help">Mbps</div>
+            </div>
+          </div>
+          <div class="col-12 col-md-3">
+            <div class="result-box total-box">
+              <div class="label">Tasa total</div>
+              <div class="value"><span id="rateTotal">0.000</span></div>
+              <div class="small-help">Mbps</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="d-grid d-md-flex gap-2 mt-4">
+          <button id="calcBtn" class="btn btn-success btn-lg px-4">Calcular</button>
+          <button id="resetBtn" class="btn btn-outline-secondary btn-lg px-4">Limpiar</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="top-card p-3 p-md-4">
+      <h2 class="h5 fw-bold mb-2">Fórmula usada</h2>
+      <div class="formula" aria-label="Fórmula de tasa de bit">
+        <div class="formula-equation">
+          <span>Rb =</span>
+          <span class="fraction">
+            <span class="numerator">8 × rRS × rc × log₂(M)</span>
+            <span class="denominator">21 × (1 + α)</span>
+          </span>
+          <span>× número_de_segmentos</span>
+        </div>
+      </div>
+
+      <div class="parameter-list">
+        <div><strong>rRS:</strong> tasa de Reed Solomon, valor fijo 188/204.</div>
+        <div><strong>rc:</strong> tasa de código convolucional.</div>
+        <div><strong>M:</strong> orden de modulación.</div>
+        <div><strong>α:</strong> intervalo de guarda.</div>
+      </div>
+
+      <div class="footer-info">
+        <div><strong>Materia:</strong> Televisión Digital Terrestre</div>
+        <div><strong>NRC:</strong> 31606</div>
+        <div><strong>Elaborado por:</strong></div>
+        <div>CAPT Eivar Dagua Jaime</div>
+        <div>TNTE Álvarez Ramírez Michelle</div>
+        <div><strong>Mayo 2026</strong></div>
+      </div>
+    </section>
+  </main>
+
+<script>
+const rRS = 188 / 204;
+const MAX_SEGMENTS = 13;
+
+const modulations = [
+  { label: 'DPSK', value: 'DPSK', m: 4 },
+  { label: 'QPSK', value: 'QPSK', m: 4 },
+  { label: '16 QAM', value: '16QAM', m: 16 },
+  { label: '64 QAM', value: '64QAM', m: 64 }
+];
+
+const codeRates = [
+  { label: '1/2', value: 1/2 },
+  { label: '2/3', value: 2/3 },
+  { label: '3/4', value: 3/4 },
+  { label: '5/6', value: 5/6 },
+  { label: '7/8', value: 7/8 }
+];
+
+const guardValues = {
+  '1/4': 1/4,
+  '1/8': 1/8,
+  '1/16': 1/16,
+  '1/32': 1/32
+};
+
+const layers = ['A','B','C'];
+const layerContainer = document.getElementById('layers');
+
+function segmentOptions(max, includeZero = true){
+  let html = includeZero ? '<option value="0">0</option>' : '<option value="">Seleccione</option>';
+  for(let i = 1; i <= max; i++) html += `<option value="${i}">${i}</option>`;
+  return html;
+}
+
+function makeOptions(items, selectedIndex = 0){
+  return items.map((item, i) => `<option value="${item.value}" ${i === selectedIndex ? 'selected' : ''}>${item.label}</option>`).join('');
+}
+
+function renderLayers(){
+  layerContainer.innerHTML = layers.map((layer, index) => `
+    <div class="col-12 col-lg-4">
+      <div class="layer-card p-3 h-100" id="card${layer}">
+        <div class="layer-title mb-3">
+          <h2 class="h5 fw-black m-0">Capa ${layer}</h2>
+          <span class="badge rounded-pill badge-layer">${index + 1}° orden</span>
+        </div>
+        <div class="mb-3">
+          <label for="seg${layer}" class="form-label">Número de segmentos</label>
+          <select id="seg${layer}" class="form-select input-user seg-input">
+            ${index === 0 ? segmentOptions(MAX_SEGMENTS, false) : segmentOptions(0, true)}
+          </select>
+        </div>
+        <div class="mb-3">
+          <label for="mod${layer}" class="form-label">Modulación</label>
+          <select id="mod${layer}" class="form-select input-user param-input">
+            ${makeOptions(modulations, layer === 'A' ? 1 : 1)}
+          </select>
+        </div>
+        <div>
+          <label for="code${layer}" class="form-label">Tasa de código</label>
+          <select id="code${layer}" class="form-select input-user param-input">
+            ${makeOptions(codeRates, 0)}
+          </select>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  document.querySelectorAll('select').forEach(el => el.addEventListener('change', handleChange));
+  document.getElementById('calcBtn').addEventListener('click', calculate);
+  document.getElementById('resetBtn').addEventListener('click', resetForm);
+  updateLayerAvailability();
+  calculate();
+}
+
+function getNumber(id){
+  const value = document.getElementById(id).value;
+  if(value === '') return 0;
+  return Number(value);
+}
+
+function getLayerData(layer){
+  const segments = getNumber(`seg${layer}`);
+  const modValue = document.getElementById(`mod${layer}`).value;
+  const codeValue = Number(document.getElementById(`code${layer}`).value);
+  const mod = modulations.find(item => item.value === modValue);
+  return { segments, mod, codeRate: codeValue };
+}
+
+function showError(message){
+  const box = document.getElementById('errorBox');
+  if(!message){
+    box.textContent = '';
+    box.classList.remove('show');
+    return;
+  }
+  box.textContent = message;
+  box.classList.add('show');
+}
+
+function setOptions(select, max, includeZero = true, previousValue = '0'){
+  select.innerHTML = segmentOptions(max, includeZero);
+  if([...select.options].some(opt => opt.value === String(previousValue))){
+    select.value = String(previousValue);
+  } else if(max > 0 && includeZero){
+    select.value = '0';
+  } else if(max > 0 && !includeZero){
+    select.value = '';
+  } else {
+    select.value = '0';
+  }
+}
+
+function setLayerDisabled(layer, disabled){
+  const card = document.getElementById(`card${layer}`);
+  const fields = [`seg${layer}`, `mod${layer}`, `code${layer}`].map(id => document.getElementById(id));
+  fields.forEach(field => field.disabled = disabled);
+  card.classList.toggle('disabled-layer', disabled);
+}
+
+function setParamsDisabled(layer, disabled){
+  document.getElementById(`mod${layer}`).disabled = disabled;
+  document.getElementById(`code${layer}`).disabled = disabled;
+}
+
+function updateLayerAvailability(){
+  const segASelect = document.getElementById('segA');
+  const segBSelect = document.getElementById('segB');
+  const segCSelect = document.getElementById('segC');
+
+  const oldB = segBSelect.value || '0';
+  const oldC = segCSelect.value || '0';
+  const a = getNumber('segA');
+
+  // Capa A siempre debe configurarse primero.
+  setLayerDisabled('A', false);
+  setParamsDisabled('A', a === 0);
+
+  const remainingAfterA = MAX_SEGMENTS - a;
+  if(a <= 0 || remainingAfterA <= 0){
+    setOptions(segBSelect, 0, true, '0');
+    setOptions(segCSelect, 0, true, '0');
+    setLayerDisabled('B', true);
+    setLayerDisabled('C', true);
+    return;
+  }
+
+  setLayerDisabled('B', false);
+  setOptions(segBSelect, remainingAfterA, true, oldB);
+  const b = getNumber('segB');
+  setParamsDisabled('B', b === 0);
+
+  const remainingAfterB = MAX_SEGMENTS - a - b;
+  if(b <= 0 || remainingAfterB <= 0){
+    setOptions(segCSelect, 0, true, '0');
+    setLayerDisabled('C', true);
+    return;
+  }
+
+  setLayerDisabled('C', false);
+  setOptions(segCSelect, remainingAfterB, true, oldC);
+  const c = getNumber('segC');
+  setParamsDisabled('C', c === 0);
+}
+
+function calculateLayer(layer){
+  const guard = guardValues[document.getElementById('guard').value];
+  const { segments, mod, codeRate } = getLayerData(layer);
+  if(!segments || !mod || !codeRate) return 0;
+  return (8 * rRS * codeRate * Math.log2(mod.m) / (21 * (1 + guard))) * segments;
+}
+
+function calculate(){
+  const rates = {
+    A: calculateLayer('A'),
+    B: calculateLayer('B'),
+    C: calculateLayer('C')
+  };
+  const totalSegments = layers.reduce((acc, layer) => acc + getNumber(`seg${layer}`), 0);
+
+  if(totalSegments > MAX_SEGMENTS){
+    showError('Error: el número máximo permitido es 13 segmentos. Revise las capas A, B y C.');
+  } else {
+    showError('');
+  }
+
+  document.getElementById('rateA').textContent = rates.A.toFixed(3);
+  document.getElementById('rateB').textContent = rates.B.toFixed(3);
+  document.getElementById('rateC').textContent = rates.C.toFixed(3);
+  document.getElementById('rateTotal').textContent = (rates.A + rates.B + rates.C).toFixed(3);
+}
+
+function handleChange(){
+  updateLayerAvailability();
+  calculate();
+}
+
+function resetForm(){
+  document.getElementById('guard').value = '1/32';
+  document.getElementById('segA').value = '';
+  ['A','B','C'].forEach(layer => {
+    document.getElementById(`mod${layer}`).value = 'QPSK';
+    document.getElementById(`code${layer}`).value = '0.5';
+  });
+  updateLayerAvailability();
+  calculate();
+}
+
+renderLayers();
+</script>
+</body>
+</html>
